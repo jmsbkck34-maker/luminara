@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Luminara: Echoes of Balance</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a sticky balance bar over a single story column with the character sheet beside it (stacked on phones), all floating on a slow canvas sky that warms toward light or cools toward shadow. */
+:root {
+  --void: #0c0a17;
+  --panel: #161329;
+  --panel-2: #1e1a37;
+  --line: #322c57;
+  --ink: #ede6d6;
+  --dim: #a59cbb;
+  --light: #f0c46a;
+  --shadow: #a379f2;
+  --balance: #7ad3c5;
+  --danger: #ec7d6e;
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-body: "Cormorant Garamond", Garamond, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  line-height: 1.55;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--void);
+}
+#sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.wrap {
+  position: relative; z-index: 1; max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: 0.04em; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.05rem; letter-spacing: 0.08em; }
+p { margin: 0; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--balance); outline-offset: 3px; }
+.btn {
+  font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.08em;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px;
+  padding: 0.7rem 1.2rem; transition: border-color .2s, background .2s;
+}
+.btn:hover { border-color: var(--balance); }
+.btn.primary { background: linear-gradient(90deg, color-mix(in srgb, var(--shadow) 35%, var(--panel-2)), color-mix(in srgb, var(--light) 35%, var(--panel-2))); border-color: color-mix(in srgb, var(--light) 50%, var(--line)); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Balance bar */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--void) 88%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line);
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  display: flex; gap: 16px 24px; align-items: center; flex-wrap: wrap;
+}
+.wordmark { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.22em; font-size: 0.95rem; }
+.meter { flex: 1 1 280px; min-width: 0; }
+.meter-label { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; }
+.meter-label strong { color: var(--ink); font-weight: 600; }
+.track {
+  position: relative; height: 10px; margin-top: 6px; border-radius: 5px;
+  background: linear-gradient(90deg, var(--shadow), color-mix(in srgb, var(--shadow) 30%, var(--panel)) 40%, var(--balance) 50%, color-mix(in srgb, var(--light) 30%, var(--panel)) 60%, var(--light));
+}
+.track .tick { position: absolute; top: 12px; width: 1px; height: 5px; background: var(--line); }
+.track .marker {
+  position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  background: var(--ink); border: 3px solid var(--void); box-shadow: 0 0 0 1px var(--ink), 0 0 14px var(--marker-glow, var(--balance));
+  transition: left .8s cubic-bezier(.3,1.4,.5,1);
+}
+.scale-ends { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; color: var(--dim); margin-top: 8px; }
+
+/* Title screen */
+.title-screen { padding-top: clamp(32px, 8vw, 88px); display: grid; gap: 40px; }
+.title-hero { display: grid; gap: 14px; }
+.title-hero h1 {
+  font-size: clamp(2.8rem, 11vw, 7rem); font-weight: 700; letter-spacing: 0.14em; line-height: 1;
+  background: linear-gradient(90deg, var(--shadow) 0%, var(--balance) 50%, var(--light) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.title-hero .sub { font-family: var(--font-display); font-size: clamp(1.05rem, 3vw, 1.5rem); letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink); }
+.title-hero .tagline { font-style: italic; color: var(--dim); max-width: 46ch; font-size: 1.3rem; }
+.title-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.lore { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 28px; }
+.lore section { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.lore p { color: color-mix(in srgb, var(--ink) 88%, var(--dim)); }
+.houses-mini { display: grid; gap: 6px; }
+.houses-mini div { display: grid; grid-template-columns: 7.5rem 1fr; gap: 8px; font-size: 1.05rem; }
+.houses-mini b { font-family: var(--font-display); font-weight: 500; font-size: 0.85rem; letter-spacing: 0.06em; padding-top: 3px; }
+
+/* Character creation */
+.create { padding-top: 28px; display: grid; gap: 28px; }
+.field label { display: block; margin-bottom: 6px; }
+.field input {
+  width: min(100%, 420px); font: inherit; font-size: 1.3rem; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 0.5rem 0.8rem;
+}
+.options { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.option {
+  display: grid; gap: 6px; align-content: start; text-align: left; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 14px;
+}
+.option[aria-pressed="true"] { border-color: var(--balance); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--balance); }
+.option .name { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.06em; }
+.option .desc { font-size: 1.02rem; color: var(--dim); line-height: 1.4; }
+.option .stats { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink); letter-spacing: 0.04em; }
+.create-foot { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.hint { color: var(--dim); font-style: italic; }
+
+/* Play screen */
+.play { padding-top: 28px; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 32px; align-items: start; }
+@media (max-width: 820px) { .play { grid-template-columns: minmax(0, 1fr); } }
+.story { display: grid; gap: 22px; min-width: 0; }
+.scene-head { display: grid; gap: 6px; }
+.prose { display: grid; gap: 14px; max-width: 64ch; }
+.prose p.speech { padding-left: 14px; border-left: 2px solid var(--line); font-style: italic; }
+.choices { display: grid; gap: 10px; max-width: 64ch; }
+.choice {
+  display: grid; gap: 4px; text-align: left; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 3px; padding: 12px 16px; transition: border-color .2s, transform .2s;
+}
+.choice:hover { border-color: var(--balance); transform: translateX(3px); }
+.choice .label { font-size: 1.2rem; font-weight: 600; }
+.choice .meta { font-family: var(--font-mono); font-size: 0.72rem; color: var(--dim); letter-spacing: 0.04em; }
+.choice .meta .lt { color: var(--light); } .choice .meta .sh { color: var(--shadow); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 18px; display: grid; gap: 14px; max-width: 64ch; }
+.check-line { font-family: var(--font-mono); font-size: 0.85rem; color: var(--dim); display: grid; gap: 4px; }
+.check-line strong { color: var(--ink); }
+.dice-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.d20 { width: 84px; height: 84px; flex: none; }
+.d20 polygon { fill: var(--panel-2); stroke: var(--balance); stroke-width: 2; }
+.d20 .inner { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.d20 text { fill: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: 26px; }
+.d20.rolling { animation: spin .7s ease-out; }
+@keyframes spin { from { transform: rotate(-200deg) scale(.8); } to { transform: none; } }
+.result { font-family: var(--font-mono); font-size: 0.9rem; display: grid; gap: 4px; }
+.result .verdict { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.08em; }
+.verdict.ok { color: var(--balance); } .verdict.fail { color: var(--danger); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.notes { display: flex; gap: 8px; flex-wrap: wrap; list-style: none; padding: 0; margin: 0; }
+.notes li { font-family: var(--font-mono); font-size: 0.74rem; padding: 3px 8px; border-radius: 2px; border: 1px solid var(--line); color: var(--ink); }
+.notes li.lt { border-color: color-mix(in srgb, var(--light) 60%, var(--line)); color: var(--light); }
+.notes li.sh { border-color: color-mix(in srgb, var(--shadow) 60%, var(--line)); color: var(--shadow); }
+.notes li.hurt { border-color: color-mix(in srgb, var(--danger) 60%, var(--line)); color: var(--danger); }
+.warden { display: flex; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: 0.78rem; color: var(--dim); }
+.warden i { width: 14px; height: 14px; transform: rotate(45deg); border: 1px solid var(--light); display: inline-block; }
+.warden i.on { background: var(--light); box-shadow: 0 0 8px var(--light); }
+
+/* Character sheet */
+.sheet { display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 96px); min-width: 0; }
+@media (max-width: 820px) { .sheet { position: static; } }
+.sheet .who { display: grid; gap: 2px; }
+.sheet .who .nm { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: 0.05em; overflow-wrap: anywhere; }
+.sheet .who .line { color: var(--dim); font-size: 1rem; }
+.statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.stat { border: 1px solid var(--line); border-radius: 2px; padding: 6px 4px; text-align: center; }
+.stat .k { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+.stat .v { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.resolve { display: grid; gap: 4px; }
+.resolve .bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.resolve .bar span { display: block; height: 100%; background: var(--balance); transition: width .6s; }
+.resolve .bar span.low { background: var(--danger); }
+.kv { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--dim); }
+.kv b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.power { font-size: 1rem; line-height: 1.4; }
+.power .used { font-family: var(--font-mono); font-size: 0.7rem; color: var(--dim); }
+.items { margin: 0; padding-left: 1.1rem; font-size: 1.02rem; }
+.items:empty::before { content: "Nothing yet."; color: var(--dim); font-style: italic; margin-left: -1.1rem; }
+
+/* Ending */
+.ending { padding-top: 36px; display: grid; gap: 26px; max-width: 760px; }
+.ending .tier { font-family: var(--font-display); font-size: clamp(2rem, 7vw, 3.6rem); letter-spacing: 0.1em; line-height: 1.05; }
+.log { margin: 0; padding-left: 1.3rem; display: grid; gap: 6px; font-size: 1.05rem; }
+.log .r { font-family: var(--font-mono); font-size: 0.72rem; color: var(--dim); }
+.reset-row { margin-top: 8px; }
+.linkish { background: none; border: none; color: var(--dim); text-decoration: underline; padding: 0; font-size: 0.95rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="wrap">
+  <div id="app" aria-live="polite"></div>
+</div>
+<script>
+(() => {
+"use strict";
+
+const STATS = [
+  { key: "might", name: "Might" },
+  { key: "grace", name: "Grace" },
+  { key: "insight", name: "Insight" },
+  { key: "presence", name: "Presence" },
+];
+const statName = (k) => STATS.find((s) => s.key === k).name;
+
+const ANCESTRIES = {
+  human: { name: "Human", stats: { might: 2, grace: 2, insight: 2, presence: 3 }, resolve: 12,
+    desc: "Stubborn, hopeful and everywhere. Humans came to Luminara from a dozen worlds." },
+  elf: { name: "Elf", stats: { might: 1, grace: 3, insight: 3, presence: 2 }, resolve: 10,
+    desc: "Long-lived and light-footed, with memories that reach back to the world's making." },
+  goblin: { name: "Goblin", stats: { might: 1, grace: 3, insight: 2, presence: 3 }, resolve: 10,
+    desc: "Quick hands, quicker tongues. Half the clever machines in Aurelline were built by goblins." },
+  tharrin: { name: "Tharrin", stats: { might: 4, grace: 1, insight: 2, presence: 2 }, resolve: 14,
+    desc: "Towering forest-born starfarers with bark-patterned hide. Very hard to knock down." },
+  sylari: { name: "Sylari", stats: { might: 1, grace: 2, insight: 3, presence: 3 }, resolve: 10,
+    desc: "Their glowing crest-fronds shift color with feeling. They sense what others hide." },
+};
+
+const HOUSES = {
+  luminaris: { name: "Luminaris", virtue: "Wisdom, protection and the pursuit of light.", stat: "insight",
+    power: "Ward of Dawn", powerText: "The first time you would lose resolve, you lose none.", kind: "ward" },
+  stellara: { name: "Stellara", virtue: "Courage, adventure and determination.", stat: "might",
+    power: "Unbroken Stride", powerText: "Once, after you fail a check, roll again and keep the better result.", kind: "reroll" },
+  novara: { name: "Novara", virtue: "Innovation, experimentation and discovery.", stat: "grace",
+    power: "Spark of Invention", powerText: "Once, add +4 to a check before you roll.", kind: "boost" },
+  virellis: { name: "Virellis", virtue: "Balance, duality and mastery of light and shadow.", stat: "presence",
+    power: "Twin Current", powerText: "Once, add +5 to a check by drawing on light or shadow. Your balance moves 1 toward the side you choose.", kind: "twin" },
+};
+
+const ITEMS = {
+  shard: { name: "Nexus Shard", desc: "Cold crystal that hums near rifts. +3 in the final scene, at a cost." },
+  lantern: { name: "Gyrolantern", desc: "Pip's brass lantern. Sees through illusion: +2 to Insight checks." },
+  blade: { name: "Echo Blade", desc: "The Warden's bound power. +2 to Might checks." },
+};
+
+function tierFor(b) {
+  if (b >= 6) return { name: "Radiant", color: "var(--light)" };
+  if (b >= 2) return { name: "Lightbound", color: "var(--light)" };
+  if (b >= -1) return { name: "Balanced", color: "var(--balance)" };
+  if (b >= -5) return { name: "Shadowbound", color: "var(--shadow)" };
+  return { name: "Umbral", color: "var(--shadow)" };
+}
+
+const has = (s, item) => s.items.includes(item);
+
+/* ---------- Scenes ---------- */
+const SCENES = {
+  market: {
+    chapter: "Prologue", place: "The Lantern Market, Aurelline", title: "A Tear in the Sky",
+    text: () => [
+      "Aurelline glows on the night of the Twin Lanterns. Paper lights drift over the market, and the air smells of spiced bread and engine oil. Five hundred years ago this city did not exist. Neither did the world beneath it.",
+      "Then the sky splits.",
+      "A seam of violet light opens above the fountain square. Stalls lift into the air and spin. A child in a blue festival mask is caught at the edge of the tear, sliding toward it. Beside her, a merchant's crate bursts open and a shard of pale crystal rolls free, humming like a struck bell.",
+      "Everyone else is running. You are the only one close enough to act.",
+    ],
+    choices: () => [
+      { label: "Dive for the child", check: { stat: "grace", dc: 12 },
+        success: { text: "You hit the stones, catch her wrist and roll clear as the tear snaps at the place you just were. She pulls off her mask and stares at you. Her name is Tamsin, and she will tell this story for the rest of her life.", balance: 2 },
+        failure: { text: "You reach her, but the rift drags you both across the stones before you tear free. She's safe. Your arm burns where the light touched it.", damage: 3, balance: 2 },
+        next: "council" },
+      { label: "Grab the humming shard",
+        effect: { text: "The shard is cold and heavy for its size. When your hand closes on it the humming stops, and the tear above you shivers as if it noticed. A guard reaches the child a moment later. She'll have bruises, and she saw what you chose.", balance: -2, item: "shard" },
+        next: "council" },
+      { label: "Force the rift's edges together", check: { stat: "insight", dc: 13 },
+        success: { text: "You reach into the tear with your mind. It isn't empty. Something pulses down there, slow and regular, like a heartbeat a long way off. You push, and the edges close enough for the child to scramble free.", balance: 1, flag: "heartbeat" },
+        failure: { text: "The rift pushes back. Something on the other side notices you, and the force of it knocks you flat. The child crawls free on her own as the tear slowly closes.", damage: 2 },
+        next: "council" },
+    ],
+  },
+
+  council: {
+    chapter: "Prologue", place: "The Concord Spire", title: "The Founders",
+    text: () => [
+      "By dawn the rifts are everywhere: twelve over Aurelline, three over the Glasswood, one swallowing a lake in the south. You are brought to the top of the Concord Spire, where the founders of Luminara still keep watch.",
+      "Archmage Elara has not aged the way others do. She came to the starways as a young student of witchcraft, carrying a wand and a habit of asking the wrong questions. Beside her stands Lord Virek, once a dark-sworn warlord of the Veyl Dominion and a master of the Current, the power that runs between the stars. Five hundred years ago they were enemies. Then Umbriox came, and they learned to fight as one.",
+      { speech: "“The rifts all lead down,” Elara says. “To the Shattered Nexus, where our powers met and this world was made.”" },
+      { speech: "Virek's voice is low. “Something is pulling the seams apart from inside. I have felt that hunger before.”" },
+      "A goblin in a soot-streaked House Novara coat clears her throat. “Pip Quillwright. I mapped the way down. I'm coming with you, so please don't argue. I've already packed.”",
+    ],
+    choices: () => [
+      { label: "Promise Elara you'll protect everyone you meet below",
+        effect: { text: "Elara takes your hand in both of hers. “Then you already understand the first rule of this world. Power is the easy part.”", balance: 1, flag: "vow" },
+        next: "chasm" },
+      { label: "Ask Virek how to make an enemy afraid",
+        effect: { text: "Virek studies you for a long moment. “Fear is a blade with no handle,” he says. Then he teaches you anyway, and you carry the lesson down with you.", balance: -1, flag: "fear" },
+        next: "chasm" },
+      { label: "Ask them why they trust each other", check: { stat: "presence", dc: 11 },
+        success: { text: "They glance at each other. “Because we both looked into Umbriox,” Virek says, “and we both looked away. It showed us the worst we could become.” Elara adds, “Remember that when it speaks to you.”", flag: "truth" },
+        failure: { text: "“Another time,” Elara says kindly, and the moment passes." },
+        next: "chasm" },
+    ],
+  },
+
+  chasm: {
+    chapter: "Trial One", place: "Beneath the Spire", title: "The Chasm of Reflection",
+    text: (s) => [
+      "Pip's map leads through the roots of the Spire into stone older than the city. The first trial waits at the bottom of a spiral stair: a chasm so deep the dark has a color. On the far side stands a figure made of mirror-glass.",
+      "It is you. It wears your face and your house colors, and it speaks with your voice.",
+      { speech: s.balance >= 2 ? "“You think you're good,” it says. “You just haven't been tested yet.”"
+        : s.balance <= -2 ? "“You already know what you are,” it says. “Why keep pretending?”"
+        : "“You can't decide what you are,” it says. “So you'll never be anything.”" },
+      "There is no bridge. Pip whispers that the old texts say the chasm carries whoever crosses it honestly.",
+    ],
+    choices: () => [
+      { label: "Admit it's right about you", check: { stat: "insight", dc: 12 },
+        success: { text: "You say it out loud. The reflection lowers its eyes, and a path of pale light unrolls across the chasm under your feet.", balance: 2 },
+        failure: { text: "The words stick in your throat. The light that forms is thin and flickering, and halfway across it gives way. You catch the far ledge and haul yourself up, shaking.", damage: 2, balance: 1 },
+        next: "gauntlet" },
+      { label: "Deny it and jump", check: { stat: "grace", dc: 14 },
+        success: { text: "You run and leap. The reflection's laughter follows you across the gap, but your boots hit stone on the far side." },
+        failure: { text: "The jump falls short. You slam into the cliff face and climb the last stretch with torn hands.", damage: 4 },
+        next: "gauntlet" },
+      { label: "Shatter the reflection", check: { stat: "might", dc: 11 },
+        success: { text: "You hurl a stone and the reflection bursts into a thousand pieces. They fall into the chasm and lock together into a bridge of jagged glass. It holds. Pip says nothing as you cross.", balance: -2 },
+        failure: { text: "The stone passes straight through it. The reflection smiles and steps into your shadow, and for a moment you feel very cold.", damage: 3, balance: -2 },
+        next: "gauntlet" },
+    ],
+  },
+
+  gauntlet: {
+    chapter: "Trial Two", place: "The Hall of Defenders", title: "The Gauntlet of Echoes",
+    enter: (s) => { if (!s.combat) s.combat = { will: 3 }; },
+    text: (s) => s.combat.will > 0 ? [
+      "Beyond the chasm lies a long hall lined with statues of Luminara's first defenders. One by one their eyes light. The last statue steps down from its plinth: an Echo-Warden, a guardian who fell on the day the world was made and is still fighting a battle that ended five centuries ago.",
+      { speech: "“None pass to the heart,” it says. Its voice is many voices." },
+      { warden: true },
+    ] : [
+      "The Warden sinks to one knee. Its light gutters like a candle in wind.",
+      { speech: "“I can't remember my name,” it says. “I only remember holding the line.”" },
+      "What remains of its power hangs in the air between you, bright and unclaimed.",
+    ],
+    choices: (s) => {
+      if (s.combat.will > 0) {
+        const list = [
+          { label: "Strike with everything you have", check: { stat: "might", dc: 12 },
+            success: { text: "Your blow lands and the Warden staggers. Light bleeds from the crack.", combat: 1 },
+            failure: { text: "The Warden's blade of memory catches you across the shoulder.", damage: 3 },
+            next: "gauntlet" },
+          { label: "Feint and slip past its guard", check: { stat: "grace", dc: 13 },
+            success: { text: "You draw its swing wide and strike the seam in its armor.", combat: 1 },
+            failure: { text: "It reads the feint and drives you back with the flat of its blade.", damage: 2 },
+            next: "gauntlet" },
+          { label: "Tell it the battle is over", check: { stat: "presence", dc: 14 },
+            success: { text: "It hesitates. “Over?” it repeats. Some of its many voices fall silent.", combat: 2, balance: 1 },
+            failure: { text: "It can't hear you over the battle still raging in its memory. Its blade answers instead.", damage: 2 },
+            next: "gauntlet" },
+        ];
+        if (s.flags.fear) list.push({ label: "Use Virek's lesson and make it afraid", check: { stat: "presence", dc: 11 },
+          success: { text: "You show it what you could do to the things it guards. The echo flinches, and some of its voices flee.", combat: 2, balance: -1 },
+          failure: { text: "Fear means nothing to something already dead. It strikes you for trying.", damage: 2 },
+          next: "gauntlet" });
+        return list;
+      }
+      return [
+        { label: "Release it", effect: { text: "You tell it the line held. “Thank you,” it whispers, and becomes a breath of warm air that fills you with strength.", balance: 2, heal: 3 }, next: "bridge" },
+        { label: "Bind its power to yourself", effect: { text: "You close your fist around its last light. It screams with many voices, then goes silent. Your arm feels stronger than it ever has.", balance: -3, item: "blade" }, next: "bridge" },
+      ];
+    },
+  },
+
+  bridge: {
+    chapter: "Trial Three", place: "Above the Deep Rift", title: "The Bridge of Whispers",
+    text: (s) => [
+      "The last trial is a bridge one stride wide, strung across a rift that opens onto nothing. As soon as you step onto it, the whispers begin. They know your name. They know what you've done today." +
+        (has(s, "blade") ? " They praise what you took from the Warden." : "") + (has(s, "shard") ? " They ask, sweetly, about the shard in your pocket." : ""),
+      "Halfway across, the bridge bucks. Pip loses her footing and goes over the side. She catches the edge with one hand. The other still clutches her map case.",
+      { speech: "“Let her go,” the whispers say. “We'll carry you to the far side in a single step. You'll be there before she reaches the bottom.”" },
+    ],
+    choices: (s) => {
+      const list = [
+        { label: "Haul Pip back up", check: { stat: "might", dc: 12 },
+          success: { text: "You grab her wrist and heave. She lands on the bridge gasping, then laughs in a way that's almost a sob. She presses a small brass lantern into your hands. “Gyrolantern. It sees through illusions. You've earned it.”", balance: 2, item: "lantern" },
+          failure: { text: "You get her up, but the bridge twists and slams you into the ropes hard enough to see stars. Pip presses a small brass lantern into your hands. “Gyrolantern. Sees through illusions. Please don't do that again.”", damage: 3, balance: 2, item: "lantern" },
+          next: "heart" },
+        { label: "Accept the whispers' offer",
+          effect: { text: "You step forward, and you're on the far side. Behind you the bridge snaps. Pip's voice calls your name once, very far away, and then the rift closes over her. She may still be alive somewhere in the deep. You can't know.", balance: -3, flag: "pipLost" },
+          next: "heart" },
+      ];
+      if (has(s, "shard")) list.push({ label: "Use the shard to freeze the bridge",
+        effect: { text: "You raise the shard and the bridge locks rigid, every rope frozen in place. You pull Pip up. She looks at the shard, then at you. “Where did you get that?” She doesn't thank you.", balance: -1, flag: "pipWary" },
+        next: "heart" });
+      return list;
+    },
+  },
+
+  heart: {
+    chapter: "Finale", place: "The Bottom of the World", title: "The Shattered Nexus",
+    text: (s) => [
+      "At the bottom of the world, the Nexus floats in a cavern of slow-turning stone: a sphere of light and shadow wound around each other and cracked down the middle. Through the crack, something looks back.",
+      { speech: "“Little echo,” says Umbriox. It has no body here, only a pressure behind your eyes. “Your founders broke me to build this world. Now the world is breaking. Let it. Or take my place, and decide what comes next.”" },
+      s.flags.pipLost ? "You are alone. The cavern is very quiet." : s.flags.pipWary ? "Pip stays a few steps behind you, watching the shard." : "Pip holds up the Gyrolantern, and in its light the crack looks a little smaller.",
+    ],
+    choices: (s) => [
+      { label: "Seal the Nexus with light", check: { stat: "insight", dc: 15, bonuses: finaleBonuses(s, "seal") },
+        success: { ending: "sealed" }, failure: { ending: "fragile" } },
+      { label: "Bind light and shadow together", check: { stat: "presence", dc: 15, bonuses: finaleBonuses(s, "harmony") },
+        success: { ending: "third" }, failure: { ending: "unsteady" } },
+      { label: "Take Umbriox's place", effect: { balance: -5, ending: "herald" } },
+    ],
+  },
+};
+
+function finaleBonuses(s, path) {
+  const list = [];
+  if (path === "seal" && s.balance >= 3) list.push({ label: "Your light", value: 2 });
+  if (path === "harmony" && s.balance >= -2 && s.balance <= 2) list.push({ label: "Your balance", value: 3 });
+  if (s.flags.heartbeat) list.push({ label: "You know its heartbeat", value: 2 });
+  if (s.flags.truth) list.push({ label: "The founders' warning", value: 2 });
+  if (has(s, "shard")) list.push({ label: "Nexus Shard (moves you 1 toward shadow)", value: 3, shard: true });
+  return list;
+}
+
+const ENDINGS = {
+  sealed: { title: "The Sealed Dawn", text: "Light pours from you into the crack. The Nexus shudders, and the seam closes like a healing wound. Far above, every rift over Aurelline goes dark at once. Umbriox's voice fades, but its last words stay with you: “Sealed is not gone.”" },
+  fragile: { title: "A Fragile Dawn", text: "Your light holds most of the crack, but not all of it. The great rifts close. The small ones linger, flickering at the edges of the world. You've bought Luminara time, not safety." },
+  third: { title: "The Third Path", text: "You don't drive Umbriox out and you don't let it in. You hold light and shadow together, the way Elara and Virek did five hundred years ago, and the Nexus begins to turn again. Something new hums at its center. It isn't sealed. It's balanced, and that may prove stronger." },
+  unsteady: { title: "An Unsteady Balance", text: "The Nexus steadies, then wobbles. Light and shadow strain against each other in your hands until you have to let go. The rifts slow but don't stop. You will have to come back." },
+  herald: { title: "Herald of the Hollow", text: "You step into the crack. Umbriox's hunger fills you, and it feels like power, like certainty. The rifts close because you tell them to. High in the Concord Spire, Elara and Virek feel it happen, and look at each other in fear." },
+  fallen: { title: "The Long Climb Back", text: "Your strength gives out. The last thing you remember is the dark, and then hands dragging you up a long stair. The rifts keep opening. This round is lost, but stories in Luminara rarely end the first time." },
+};
+
+/* ---------- State ---------- */
+const SAVE_KEY = "luminara.round1";
+let state = newState();
+
+function newState() {
+  return { screen: "title", name: "", ancestry: null, house: null, stats: null, resolve: 0, maxResolve: 0,
+    balance: 0, items: [], flags: {}, powerUsed: false, scene: "market", combat: null,
+    pending: null, roll: null, outcome: null, ending: null, log: [] };
+}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {} }
+function loadSave() {
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); return s && s.screen && s.screen !== "title" ? s : null; } catch (e) { return null; }
+}
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+function d20() {
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / 20) * 20;
+  do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+  return (buf[0] % 20) + 1;
+}
+
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sign = (n) => (n >= 0 ? "+" + n : "−" + Math.abs(n));
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- Rules ---------- */
+function house() { return HOUSES[state.house]; }
+
+function checkBonuses(check) {
+  const list = [{ label: statName(check.stat), value: state.stats[check.stat] }];
+  if (check.stat === "insight" && has(state, "lantern")) list.push({ label: "Gyrolantern", value: 2 });
+  if (check.stat === "might" && has(state, "blade")) list.push({ label: "Echo Blade", value: 2 });
+  return list.concat(check.bonuses || []);
+}
+
+function shiftBalance(n) { state.balance = Math.max(-10, Math.min(10, state.balance + n)); }
+
+function applyEffect(effect, choice) {
+  const notes = [];
+  if (effect.balance) {
+    shiftBalance(effect.balance);
+    notes.push({ cls: effect.balance > 0 ? "lt" : "sh", text: `${sign(effect.balance)} Balance (toward ${effect.balance > 0 ? "light" : "shadow"})` });
+  }
+  if (effect.damage) {
+    if (house().kind === "ward" && !state.powerUsed) {
+      state.powerUsed = true;
+      notes.push({ cls: "lt", text: `Ward of Dawn absorbed ${effect.damage} resolve loss` });
+    } else {
+      state.resolve = Math.max(0, state.resolve - effect.damage);
+      notes.push({ cls: "hurt", text: `−${effect.damage} Resolve` });
+    }
+  }
+  if (effect.heal) {
+    const before = state.resolve;
+    state.resolve = Math.min(state.maxResolve, state.resolve + effect.heal);
+    if (state.resolve > before) notes.push({ cls: "", text: `+${state.resolve - before} Resolve` });
+  }
+  if (effect.item && !has(state, effect.item)) { state.items.push(effect.item); notes.push({ cls: "", text: `Gained ${ITEMS[effect.item].name}` }); }
+  if (effect.flag) state.flags[effect.flag] = true;
+  if (effect.combat) { state.combat.will = Math.max(0, state.combat.will - effect.combat); notes.push({ cls: "", text: `Warden ${sign(-effect.combat)} will` }); }
+  return notes;
+}
+
+function choose(index) {
+  const scene = SCENES[state.scene];
+  const choice = scene.choices(state)[index];
+  if (!choice) return;
+  state.choiceIndex = index;
+  if (choice.check) {
+    state.pending = { label: choice.label, stat: choice.check.stat, dc: choice.check.dc, bonuses: checkBonuses(choice.check) };
+    state.roll = null;
+    render();
+    return;
+  }
+  finish(choice, choice.effect, null);
+}
+
+function rollCheck(mode) {
+  const p = state.pending;
+  let extra = 0, extraLabel = "";
+  if (mode === "boost") { extra = 4; extraLabel = "Spark of Invention"; state.powerUsed = true; }
+  if (mode === "light" || mode === "shadow") {
+    extra = 5; extraLabel = `Twin Current (${mode})`; state.powerUsed = true;
+    shiftBalance(mode === "light" ? 1 : -1);
+  }
+  const die = d20();
+  const bonus = p.bonuses.reduce((sum, b) => sum + b.value, 0) + extra;
+  const total = die + bonus;
+  const success = die === 20 || (die !== 1 && total >= p.dc);
+  state.roll = { die, bonus, total, success, extraLabel, previous: state.roll, rerolled: false, twin: mode === "light" || mode === "shadow" ? mode : null };
+  animateNext = true;
+  render();
+}
+
+function reroll() {
+  const prev = state.roll;
+  state.powerUsed = true;
+  const die = d20();
+  const keep = Math.max(die, prev.die);
+  const total = keep + prev.bonus;
+  state.roll = { ...prev, die: keep, otherDie: die === keep ? prev.die : die, total, success: keep === 20 || (keep !== 1 && total >= state.pending.dc), rerolled: true };
+  animateNext = true;
+  render();
+}
+
+function continueCheck() {
+  const scene = SCENES[state.scene];
+  const choice = scene.choices(state)[state.choiceIndex];
+  const roll = state.roll;
+  const usedShard = (state.pending.bonuses || []).some((b) => b.shard);
+  finish(choice, roll.success ? choice.success : choice.failure, roll, usedShard);
+}
+
+function finish(choice, effect, roll, usedShard) {
+  const scene = SCENES[state.scene];
+  const notes = applyEffect(effect, choice);
+  if (usedShard) { shiftBalance(-1); notes.push({ cls: "sh", text: "−1 Balance (Nexus Shard)" }); }
+  if (roll && roll.twin) notes.unshift({ cls: roll.twin === "light" ? "lt" : "sh", text: `${roll.twin === "light" ? "+1" : "−1"} Balance (Twin Current)` });
+  state.log.push({ scene: scene.title, choice: choice.label, result: roll ? (roll.success ? "success" : "failure") : null });
+  state.pending = null;
+  state.roll = null;
+  let ending = effect.ending || null;
+  if (state.resolve <= 0) ending = "fallen";
+  if (ending) {
+    state.ending = ending;
+    state.screen = "end";
+    state.outcome = null;
+    save(); render(); scrollTop();
+    return;
+  }
+  state.outcome = { text: effect.text || "", notes, next: choice.next };
+  save(); render();
+}
+
+function advance() {
+  const next = state.outcome.next;
+  const sameScene = next === state.scene;
+  state.outcome = null;
+  state.scene = next;
+  const scene = SCENES[next];
+  if (scene.enter) scene.enter(state);
+  save(); render();
+  if (!sameScene) scrollTop();
+}
+
+function scrollTop() { window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }
+
+/* ---------- Rendering ---------- */
+const app = document.getElementById("app");
+let animateNext = false;
+let draft = { name: "", ancestry: null, house: null };
+
+function meterHTML() {
+  const t = tierFor(state.balance);
+  const pct = ((state.balance + 10) / 20) * 100;
+  let ticks = "";
+  for (let i = -10; i <= 10; i += 5) ticks += `<span class="tick" style="left:${((i + 10) / 20) * 100}%"></span>`;
+  return `<div class="topbar">
+    <span class="wordmark">LUMINARA</span>
+    <div class="meter" role="meter" aria-label="Balance" aria-valuemin="-10" aria-valuemax="10" aria-valuenow="${state.balance}" aria-valuetext="${sign(state.balance)}, ${t.name}">
+      <div class="meter-label"><span>Balance <strong>${sign(state.balance)}</strong></span><strong style="color:${t.color}">${t.name}</strong></div>
+      <div class="track">${ticks}<span class="marker" style="left:${pct}%; --marker-glow:${t.color}"></span></div>
+      <div class="scale-ends"><span>Shadow −10</span><span>0</span><span>Light +10</span></div>
+    </div>
+  </div>`;
+}
+
+function titleHTML() {
+  const saved = loadSave();
+  return `<div class="title-screen">
+    <div class="title-hero">
+      <span class="eyebrow">Round One · The Shattered Nexus</span>
+      <h1>LUMINARA</h1>
+      <p class="sub">Echoes of Balance</p>
+      <p class="tagline">Light and darkness are powerful forces, but the choices we make determine who we become.</p>
+      <div class="title-actions">
+        <button class="btn primary" data-act="new">Begin a new hero</button>
+        ${saved ? `<button class="btn" data-act="continue">Continue ${esc(saved.name || "your hero")}</button>` : ""}
+      </div>
+    </div>
+    <div class="lore">
+      <section>
+        <span class="eyebrow">The story so far</span>
+        <p>Elara was a young witch who fell out of her own world and into a galaxy at war. There she met Virek, a dark-sworn warlord who wielded the Current, the power that runs between the stars. Her magic made no sense to him. His power frightened her.</p>
+        <p>Then Umbriox woke: an ancient hunger that eats the walls between worlds. Elara and Virek fought it together, magic and Current as one, and where their powers met, a new world was born. They called it Luminara.</p>
+      </section>
+      <section>
+        <span class="eyebrow">The four houses</span>
+        <div class="houses-mini">
+          ${Object.values(HOUSES).map((h) => `<div><b>${h.name}</b><span>${h.virtue}</span></div>`).join("")}
+        </div>
+      </section>
+      <section>
+        <span class="eyebrow">How it plays</span>
+        <p>Every choice can move your <b>Balance</b> toward light or shadow. Compassion and sacrifice pull one way. Selfishness and cruelty pull the other. Where you stand changes what the world says to you and which endings you can reach.</p>
+        <p>Risky choices call for a <b>d20 check</b>: roll, add your stat, and meet the difficulty. A natural 20 always succeeds and a natural 1 always fails.</p>
+      </section>
+    </div>
+  </div>`;
+}
+
+const statLine = (stats) => STATS.map((s) => `${s.name.slice(0, 3).toUpperCase()} ${stats[s.key]}`).join(" · ");
+
+function previewText() {
+  const a = draft.ancestry ? ANCESTRIES[draft.ancestry] : null;
+  const h = draft.house ? HOUSES[draft.house] : null;
+  if (!draft.name.trim() || !a || !h) return "Choose a name, an ancestry and a house.";
+  const stats = { ...a.stats };
+  stats[h.stat] += 1;
+  return `${draft.name.trim()}: ${statLine(stats)} · Resolve ${a.resolve}`;
+}
+
+function createHTML() {
+  const a = draft.ancestry ? ANCESTRIES[draft.ancestry] : null;
+  const h = draft.house ? HOUSES[draft.house] : null;
+  const ready = draft.name.trim() && a && h;
+  const preview = previewText();
+  return `<div class="create">
+    <div class="scene-head"><span class="eyebrow">Before the rifts</span><h2>Who answers the call?</h2></div>
+    <div class="field">
+      <label for="hero-name" class="eyebrow">Name</label>
+      <input id="hero-name" maxlength="30" autocomplete="off" value="${esc(draft.name)}" placeholder="Your hero's name">
+    </div>
+    <div class="field">
+      <span class="eyebrow">Ancestry</span>
+      <div class="options" role="group" aria-label="Ancestry" style="margin-top:8px">
+        ${Object.entries(ANCESTRIES).map(([k, v]) => `<button type="button" class="option" data-ancestry="${k}" aria-pressed="${draft.ancestry === k}">
+          <span class="name">${v.name}</span><span class="desc">${v.desc}</span><span class="stats">${statLine(v.stats)} · RES ${v.resolve}</span></button>`).join("")}
+      </div>
+    </div>
+    <div class="field">
+      <span class="eyebrow">House</span>
+      <div class="options" role="group" aria-label="House" style="margin-top:8px">
+        ${Object.entries(HOUSES).map(([k, v]) => `<button type="button" class="option" data-house="${k}" aria-pressed="${draft.house === k}">
+          <span class="name">House ${v.name}</span><span class="desc">${v.virtue}</span>
+          <span class="stats">+1 ${statName(v.stat).toUpperCase()}</span>
+          <span class="desc"><b style="color:var(--ink)">${v.power}.</b> ${v.powerText}</span></button>`).join("")}
+      </div>
+    </div>
+    <div class="create-foot">
+      <button class="btn primary" data-act="start" ${ready ? "" : "disabled"}>Enter Luminara</button>
+      <span class="hint">${esc(preview)}</span>
+    </div>
+  </div>`;
+}
+
+function sheetHTML() {
+  const a = ANCESTRIES[state.ancestry], h = house();
+  const pct = state.maxResolve ? (state.resolve / state.maxResolve) * 100 : 0;
+  return `<aside class="sheet panel" aria-label="Character sheet">
+    <div class="who"><span class="nm">${esc(state.name)}</span><span class="line">${a.name} of House ${h.name}</span></div>
+    <div class="resolve">
+      <div class="kv"><span>RESOLVE</span><b>${state.resolve} / ${state.maxResolve}</b></div>
+      <div class="bar"><span class="${pct <= 34 ? "low" : ""}" style="width:${pct}%"></span></div>
+    </div>
+    <div class="statgrid">${STATS.map((s) => `<div class="stat"><div class="k">${s.name.slice(0, 3)}</div><div class="v">${sign(state.stats[s.key])}</div></div>`).join("")}</div>
+    <div class="power"><span class="eyebrow">House power</span><br><b>${h.power}.</b> ${h.powerText}<br><span class="used">${state.powerUsed ? "USED THIS ROUND" : "READY"}</span></div>
+    <div><span class="eyebrow">Carrying</span><ul class="items">${state.items.map((i) => `<li title="${esc(ITEMS[i].desc)}">${ITEMS[i].name}</li>`).join("")}</ul></div>
+    <button class="linkish" data-act="abandon">Start over</button>
+  </aside>`;
+}
+
+function proseHTML(lines) {
+  return lines.map((l) => {
+    if (typeof l === "string") return `<p>${esc(l)}</p>`;
+    if (l.speech) return `<p class="speech">${esc(l.speech)}</p>`;
+    if (l.warden) {
+      let pips = "";
+      for (let i = 0; i < 3; i++) pips += `<i class="${i < state.combat.will ? "on" : ""}"></i>`;
+      return `<div class="warden" aria-label="Echo-Warden will: ${state.combat.will} of 3">ECHO-WARDEN WILL ${pips}</div>`;
+    }
+    return "";
+  }).join("");
+}
+
+function choiceMeta(c) {
+  const parts = [];
+  if (c.check) parts.push(`${statName(c.check.stat).toUpperCase()} CHECK · DC ${c.check.dc}`);
+  const e = c.effect || (c.success && c.success.balance === (c.failure && c.failure.balance) ? c.success : null);
+  if (e && e.balance) parts.push(`<span class="${e.balance > 0 ? "lt" : "sh"}">${e.balance > 0 ? "LEANS LIGHT" : "LEANS SHADOW"}</span>`);
+  if (c.effect && c.effect.ending) parts.push("ENDS THE ROUND");
+  return parts.length ? `<span class="meta">${parts.join(" · ")}</span>` : "";
+}
+
+function d20SVG(n, rolling) {
+  return `<svg class="d20 ${rolling ? "rolling" : ""}" viewBox="0 0 100 100" aria-hidden="true">
+    <polygon points="50,3 93,27 93,73 50,97 7,73 7,27"></polygon>
+    <polygon class="inner" points="50,22 76,66 24,66"></polygon>
+    <text x="50" y="${n >= 10 ? 59 : 59}" text-anchor="middle">${n}</text></svg>`;
+}
+
+function checkPanelHTML() {
+  const p = state.pending, r = state.roll, h = house();
+  const bonusText = p.bonuses.map((b) => `${b.label} ${sign(b.value)}`).join(" · ");
+  let body;
+  if (!r) {
+    const btns = [`<button class="btn primary" data-act="roll">Roll d20</button>`];
+    if (!state.powerUsed && h.kind === "boost") btns.push(`<button class="btn" data-act="roll-boost">Use Spark of Invention (+4) and roll</button>`);
+    if (!state.powerUsed && h.kind === "twin") {
+      btns.push(`<button class="btn" data-act="roll-light">Twin Current: draw on light (+5)</button>`);
+      btns.push(`<button class="btn" data-act="roll-shadow">Twin Current: draw on shadow (+5)</button>`);
+    }
+    body = `<div class="dice-row">${d20SVG(20, false)}<div class="btn-row">${btns.join("")}</div></div>`;
+  } else {
+    const parts = [`d20 ${r.die}`].concat(p.bonuses.map((b) => `${b.label} ${sign(b.value)}`));
+    if (r.extraLabel) parts.push(`${r.extraLabel} ${sign(r.bonus - p.bonuses.reduce((s, b) => s + b.value, 0))}`);
+    const nat = r.die === 20 ? " (natural 20)" : r.die === 1 ? " (natural 1)" : "";
+    const btns = [];
+    if (!r.success && !state.powerUsed && h.kind === "reroll") btns.push(`<button class="btn" data-act="reroll">Unbroken Stride: roll again</button>`);
+    btns.push(`<button class="btn primary" data-act="resolve">Continue</button>`);
+    body = `<div class="dice-row">${d20SVG(r.die, animateNext && !reduceMotion)}
+      <div class="result">
+        <span class="verdict ${r.success ? "ok" : "fail"}">${r.success ? "Success" : "Failure"}${nat}</span>
+        <span>${parts.join(" + ").replace(/\+ −/g, "− ")} = <b>${r.total}</b> vs DC ${p.dc}</span>
+        ${r.rerolled ? `<span>Rerolled with Unbroken Stride: kept ${r.die}, dropped ${r.otherDie}</span>` : ""}
+      </div></div>
+      <div class="btn-row">${btns.join("")}</div>`;
+  }
+  return `<div class="panel">
+    <div class="check-line"><span class="eyebrow">${esc(p.label)}</span>
+      <span><strong>${statName(p.stat)} check</strong> · difficulty <strong>${p.dc}</strong></span>
+      <span>Your bonuses: ${esc(bonusText)}</span></div>
+    ${body}</div>`;
+}
+
+function outcomeHTML() {
+  const o = state.outcome;
+  return `<div class="panel">
+    ${o.text ? `<p>${esc(o.text)}</p>` : ""}
+    ${o.notes.length ? `<ul class="notes">${o.notes.map((n) => `<li class="${n.cls}">${esc(n.text)}</li>`).join("")}</ul>` : ""}
+    <div class="btn-row"><button class="btn primary" data-act="advance">Continue</button></div>
+  </div>`;
+}
+
+function playHTML() {
+  const scene = SCENES[state.scene];
+  const choices = scene.choices(state);
+  let lower;
+  if (state.outcome) lower = outcomeHTML();
+  else if (state.pending) lower = checkPanelHTML();
+  else lower = `<div class="choices">${choices.map((c, i) => `<button class="choice" data-choice="${i}"><span class="label">${esc(c.label)}</span>${choiceMeta(c)}</button>`).join("")}</div>`;
+  return `${meterHTML()}<div class="play">
+    <div class="story">
+      <div class="scene-head"><span class="eyebrow">${scene.chapter} · ${scene.place}</span><h2>${scene.title}</h2></div>
+      <div class="prose">${proseHTML(scene.text(state))}</div>
+      ${lower}
+    </div>
+    ${sheetHTML()}
+  </div>`;
+}
+
+function endHTML() {
+  const e = ENDINGS[state.ending];
+  const t = tierFor(state.balance);
+  const extra = state.flags.pipLost ? " Somewhere in the deep, a small light that might be a lantern is still moving." : "";
+  return `${meterHTML()}<div class="ending">
+    <span class="eyebrow">Round One complete · ${esc(state.name)}, ${ANCESTRIES[state.ancestry].name} of House ${house().name}</span>
+    <h2>${e.title}</h2>
+    <p class="prose">${esc(e.text + extra)}</p>
+    <div><span class="eyebrow">You end the round</span><div class="tier" style="color:${t.color}">${t.name}</div>
+      <p class="hint">Balance ${sign(state.balance)} · Resolve ${state.resolve}/${state.maxResolve} · ${state.items.length ? state.items.map((i) => ITEMS[i].name).join(", ") : "No relics"}</p></div>
+    <div><span class="eyebrow">Your choices</span>
+      <ol class="log">${state.log.map((l) => `<li><b>${esc(l.scene)}:</b> ${esc(l.choice)}${l.result ? ` <span class="r">${l.result.toUpperCase()}</span>` : ""}</li>`).join("")}</ol></div>
+    <p class="hint">Round Two picks up from here. Your balance will shape who trusts you.</p>
+    <div class="btn-row"><button class="btn primary" data-act="new">Play Round One again</button></div>
+  </div>`;
+}
+
+function render() {
+  if (state.screen === "title") app.innerHTML = titleHTML();
+  else if (state.screen === "create") app.innerHTML = createHTML();
+  else if (state.screen === "play") app.innerHTML = playHTML();
+  else app.innerHTML = endHTML();
+  animateNext = false;
+  sky.setBalance(state.screen === "play" || state.screen === "end" ? state.balance : 0);
+}
+
+/* ---------- Events ---------- */
+app.addEventListener("input", (e) => {
+  if (e.target.id === "hero-name") {
+    draft.name = e.target.value;
+    const btn = app.querySelector('[data-act="start"]');
+    const ready = draft.name.trim() && draft.ancestry && draft.house;
+    btn.disabled = !ready;
+    app.querySelector(".hint").textContent = previewText();
+  }
+});
+
+app.addEventListener("click", (e) => {
+  const el = e.target.closest("button");
+  if (!el) return;
+  if (el.dataset.ancestry) { draft.ancestry = el.dataset.ancestry; rerenderCreate(); return; }
+  if (el.dataset.house) { draft.house = el.dataset.house; rerenderCreate(); return; }
+  if (el.dataset.choice !== undefined) { choose(Number(el.dataset.choice)); return; }
+  switch (el.dataset.act) {
+    case "new": clearSave(); state = newState(); state.screen = "create"; draft = { name: "", ancestry: null, house: null }; render(); scrollTop(); break;
+    case "continue": { const s = loadSave(); if (s) { state = s; render(); } break; }
+    case "start": startGame(); break;
+    case "roll": rollCheck("plain"); break;
+    case "roll-boost": rollCheck("boost"); break;
+    case "roll-light": rollCheck("light"); break;
+    case "roll-shadow": rollCheck("shadow"); break;
+    case "reroll": reroll(); break;
+    case "resolve": continueCheck(); break;
+    case "advance": advance(); break;
+    case "abandon":
+      if (el.dataset.confirm) { clearSave(); state = newState(); render(); scrollTop(); }
+      else { el.dataset.confirm = "1"; el.textContent = "Tap again to abandon this hero"; }
+      break;
+  }
+});
+
+function rerenderCreate() {
+  const focusId = document.activeElement && document.activeElement.dataset;
+  const key = focusId && (focusId.ancestry ? `[data-ancestry="${focusId.ancestry}"]` : focusId.house ? `[data-house="${focusId.house}"]` : null);
+  render();
+  if (key) { const el = app.querySelector(key); if (el) el.focus(); }
+}
+
+function startGame() {
+  const a = ANCESTRIES[draft.ancestry], h = HOUSES[draft.house];
+  if (!draft.name.trim() || !a || !h) return;
+  state = newState();
+  state.screen = "play";
+  state.name = draft.name.trim().slice(0, 30);
+  state.ancestry = draft.ancestry;
+  state.house = draft.house;
+  state.stats = { ...a.stats };
+  state.stats[h.stat] += 1;
+  state.maxResolve = state.resolve = a.resolve;
+  save(); render(); scrollTop();
+}
+
+/* ---------- Sky ---------- */
+const sky = (() => {
+  const canvas = document.getElementById("sky");
+  const ctx = canvas.getContext("2d");
+  let w = 0, h = 0, stars = [], target = 0, current = 0, t = 0, raf = 0;
+  function resize() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = canvas.clientWidth; h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = Array.from({ length: Math.round((w * h) / 5200) }, () => ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.3 + 0.2, p: Math.random() * 6.28 }));
+    draw();
+  }
+  function mix(a, b, k) { return a.map((v, i) => Math.round(v + (b[i] - v) * k)); }
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    const k = (current + 10) / 20;
+    const glow = k < 0.5 ? mix([163, 121, 242], [122, 211, 197], k * 2) : mix([122, 211, 197], [240, 196, 106], (k - 0.5) * 2);
+    const cx = w * (0.25 + k * 0.5), cy = h * 0.18;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
+    g.addColorStop(0, `rgba(${glow.join(",")},0.16)`);
+    g.addColorStop(1, "rgba(12,10,23,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    // the rift: a thin seam of light across the sky
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-0.35);
+    const seam = ctx.createLinearGradient(-w * 0.4, 0, w * 0.4, 0);
+    seam.addColorStop(0, "rgba(0,0,0,0)");
+    seam.addColorStop(0.5, `rgba(${glow.join(",")},${0.35 + Math.sin(t * 0.8) * 0.08})`);
+    seam.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = seam; ctx.fillRect(-w * 0.4, -1, w * 0.8, 2);
+    ctx.restore();
+    for (const s of stars) {
+      const a = 0.35 + Math.sin(t + s.p) * 0.25;
+      ctx.fillStyle = `rgba(237,230,214,${a})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
+    }
+  }
+  function loop() {
+    t += 0.012; current += (target - current) * 0.03; draw();
+    raf = requestAnimationFrame(loop);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+  if (!reduceMotion) raf = requestAnimationFrame(loop);
+  return { setBalance(b) { target = b; if (reduceMotion) { current = b; draw(); } } };
+})();
+
+/* ---------- Boot ---------- */
+function start(data) {
+  if (data && data.state) { state = data.state; draft = data.draft || draft; }
+  render();
+}
+if (window.claude && window.claude.hot) window.claude.hot.snapshot(() => ({ state, draft }));
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start);
+else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+})();
+</script>
+</body>
+</html>
